@@ -1,4 +1,5 @@
 import re
+import datetime
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
     return set_result
@@ -7,7 +8,7 @@ def set_union(a,b):
     return union_set
 def set_diff (set_result,union_set):
     set_diff = set_result.symmetric_difference(union_set)
-    return list(set_diff)
+    return set_diff
 def list_intersection (a,b):
     list_intersection = set(a) & set(b)
     list_result = list(list_intersection)
@@ -190,7 +191,7 @@ def two_dict_trans_key1(stock_dict, industry_dict):
 
     return result_dict
 # n = {'平安银行': ['跨境支付（CIPS）', '标普道琼斯A股'], '申万宏源': ['国企改革', '期货概念', '标普道琼斯A股']}
-# n1 = {'平安银行': '000001.SZ', '申万宏源': '000166.SZ'}
+# n1 = {'平安银行': '000001.SZ', '申万宏源': '000166.SZ','sss':shgu}
 # result = two_dict_trans_key1(n1, n)
 # print(result)
 #{'000001.SZ': ['跨境支付（CIPS）', '标普道琼斯A股'], '000166.SZ': ['国企改革', '期货概念', '标普道琼斯A股']}
@@ -199,7 +200,90 @@ def dataframe_completely_display ():
     pd.set_option('display.max_columns', None)  # 显示所有列
     pd.set_option('display.max_rows', None)  # 显示所有行
     pd.set_option('display.width', None)  # 不限制显示宽度（自动换行）
-
+def today_growth(yest_price, now_price):
+    today_growth1 = {}
+    for i, price in yest_price.items():
+        growth = (now_price[i] - price) / price * 100
+        today_growth1[i] = growth
+    return today_growth1
+#这个是算今天的涨幅的你需要输出两个字典一个是昨天的价格一个是今天的价格，就可以算出来了
+def diff_dict_key(dict13,dict63):
+    different_keys = set(dict13.keys()) ^ set(dict63.keys())
+    return different_keys
+#这个是两个字典找不同的键
+# dict1 = {'ss': 23, 'sd': 37, 'dd': 72373}
+# dict2 = {'ss': 25, 'dd': 839}
+#
+# different_keys = set(dict1.keys()) ^ set(dict2.keys())
+# print(different_keys)
+def aver_price(askPrice,askVol,bidPrice,bidVol):
+    askresult = []
+    bidresult = []
+    for i in range(len(askPrice)):
+        askresult.append(askPrice[i] * askVol[i])
+    askresult = sum(askresult)
+    for i in range(len(bidPrice)):
+        bidresult.append(bidPrice[i] * bidVol[i])
+    bidresult = sum(bidresult)
+    all_m = bidresult + askresult
+    all_vol = sum(askVol) + sum(bidVol)
+    today_aver_price = all_m / all_vol
+    return today_aver_price
 def give_value_return_key(dict223,list3246):
     matching_keys = [key for key, value in dict223.items() if value in list3246]
     return matching_keys
+def timestamp_to_Visual_time(timestamp):
+
+
+    timestamp1 = timestamp / 1000
+
+    # 将秒级别时间戳转换为日期时间对象
+    dt_object = datetime.datetime.fromtimestamp(timestamp1)
+    return dt_object
+
+def get_transaction_date(start_date,end_date):
+    import tushare as ts
+    pro = ts.pro_api('e3157f092f921a4b8ff61524559de8681fb81a56e65f14297e47824e')
+    df456 = pro.ths_daily(ts_code='883910.TI', start_date=start_date, end_date=end_date, fields='ts_code,trade_date,open,close,high,low,pct_change')
+# 将字符串日期转换为datetime对象
+    data_list  = df456['trade_date'].tolist()      #获得这段时间可以交易的时间
+    return data_list
+def remove_the_inner_sublists_within_list(lists):
+    result3456 = [item for sublist in lists for item in sublist]
+    unique_list = list(set(result3456))
+    return unique_list
+    # 去除列表里面的小列表
+def remove_list_duplicate_content(list387):
+    unique_list = list(set(list387))
+    return unique_list
+def get_dict_key(my_dict,value_to_find):
+    # 获取字典中所有键值对的元组列表
+    items = my_dict.items()
+    # 遍历元组列表，找到与给定值相等的值所对应的键
+    for key, value in items:
+        if value == value_to_find:
+            return key
+    #这个是输入一个字典和值，他会返回这个字典这个值对应的键
+
+def judge_upstop_price(stock_name,stock_code,stock_yesterday_price):
+    if stock_name.startswith(('st', '*st','ST', '*ST')) :
+        # 这个是判断股票名字是否是st的，并且是不是主板的
+        if stock_code.startswith(('00', '60')):
+            upstop_price = round(stock_yesterday_price * 1.05,2)
+        elif stock_code.startswith(('68', '30')):
+            upstop_price = round(stock_yesterday_price * 1.2, 2)
+        else:
+            upstop_price = round(stock_yesterday_price * 1.3, 2)
+    elif stock_name.startswith('N'):
+        upstop_price = 100000#这个意思是无限大的意思
+    elif stock_name.startswith('C'):
+        upstop_price = 100000  # 这个意思是无限大的意思
+    else:
+        if stock_code.startswith(('00', '60')):
+            upstop_price = round(stock_yesterday_price * 1.1,2)
+        elif stock_code.startswith(('68', '30')):
+            upstop_price = round(stock_yesterday_price * 1.2,2)
+        else:
+            upstop_price = round(stock_yesterday_price * 1.3,2)
+    return upstop_price
+#用来判断今日的涨停价格是多少

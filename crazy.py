@@ -287,3 +287,16 @@ def judge_upstop_price(stock_name,stock_code,stock_yesterday_price):
             upstop_price = round(stock_yesterday_price * 1.3,2)
     return upstop_price
 #用来判断今日的涨停价格是多少
+def get_month_range(month):
+    # 获取当前年份和指定月份
+    year = datetime.date.today().year
+    start_date = datetime.date(year, month, 1)
+    # 下个月的第一天，再减去一天得到本月的最后一天
+    if month == 12:
+        end_date = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
+    else:
+        end_date = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
+
+    return start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d")
+#我输入具体哪个月份，输出时间
+#例如我输入12，得到('20231201', '20231231')

@@ -1,5 +1,6 @@
 import re
 import datetime
+import time
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
     return set_result
@@ -195,10 +196,19 @@ def two_dict_trans_key1(stock_dict, industry_dict):
 # result = two_dict_trans_key1(n1, n)
 # print(result)
 #{'000001.SZ': ['跨境支付（CIPS）', '标普道琼斯A股'], '000166.SZ': ['国企改革', '期货概念', '标普道琼斯A股']}
-def dataframe_completely_display ():
+def dataframe_completely_display(display_columns=None, display_rows=None):
     import pandas as pd
-    pd.set_option('display.max_columns', None)  # 显示所有列
-    pd.set_option('display.max_rows', None)  # 显示所有行
+
+    if display_columns is None:
+        pd.set_option('display.max_columns', None)  # 显示所有列
+    else:
+        pd.set_option('display.max_columns', display_columns)
+
+    if display_rows is None:
+        pd.set_option('display.max_rows', None)  # 显示所有行
+    else:
+        pd.set_option('display.max_rows', display_rows)
+
     pd.set_option('display.width', None)  # 不限制显示宽度（自动换行）
 def today_growth(yest_price, now_price):
     today_growth1 = {}
@@ -233,17 +243,16 @@ def give_value_return_key(dict223,list3246):
     matching_keys = [key for key, value in dict223.items() if value in list3246]
     return matching_keys
 def timestamp_to_Visual_time(timestamp):
+    local_time = time.localtime(timestamp)
 
+    # 格式化输出时间
+    formatted_time = time.strftime("%Y-%m-%d %H:%M:%S", local_time)
 
-    timestamp1 = timestamp / 1000
-
-    # 将秒级别时间戳转换为日期时间对象
-    dt_object = datetime.datetime.fromtimestamp(timestamp1)
-    return dt_object
+    return formatted_time
 
 def get_transaction_date(start_date,end_date):
     import tushare as ts
-    pro = ts.pro_api('e3157f092f921a4b8ff61524559de8681fb81a56e65f14297e47824e')
+    pro = ts.pro_api('5fed8bed6aa331d3b8d5577ce5e7343f8ee859597908ab9366542dd3')
     df456 = pro.ths_daily(ts_code='883910.TI', start_date=start_date, end_date=end_date, fields='ts_code,trade_date,open,close,high,low,pct_change')
 # 将字符串日期转换为datetime对象
     data_list  = df456['trade_date'].tolist()      #获得这段时间可以交易的时间
@@ -298,3 +307,66 @@ def get_month_range(year, month):
     return start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d")
 #我输入具体哪个月份，输出时间
 #例如我输入(2023,12)，得到('20231201', '20231231')
+def list_Element_Split(lsit):
+    lsit1= []
+    for item in lsit:
+        lsit1.extend(item.split(';'))
+
+    return lsit1
+#['汽车电子;小鹏汽车概念;融资融券;专精特新;消费电子概念;PCB概念', '小额贷款;有色铝;一带一路;参股民营银行;光伏概念']
+#['汽车电子','小鹏汽车概念','融资融券','专精特新','消费电子概念','PCB概念', '小额贷款','有色铝','一带一路','参股民营银行','光伏概念']
+
+def input_stock_list_date_out_premium(list1, date):
+    #输入股票代码和日期，算出隔夜的溢价。算法是隔夜价到第二天集合竞价的涨幅
+    import datetime
+    today = datetime.date.today()
+    today_str = today.strftime("%Y%m%d")#获得今日日期
+    tradeday_list = get_transaction_date(20000101, today_str)
+    previous_date = None
+    index = None
+    date_str = str(date)
+    if date_str in tradeday_list:
+        index = tradeday_list.index(date_str)
+        if index > 0:
+            previous_date_str = tradeday_list[index - 1]
+            previous_date = datetime.datetime.strptime(previous_date_str, "%Y%m%d").date()
+    else:
+        index = date_str
+    ts_code_str = ','.join(list1)
+    import tushare as ts
+    pro = ts.pro_api()
+    previous_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
+    df = pro.daily(ts_code=ts_code_str, start_date=previous_date_str, end_date=previous_date_str)
+    df['geye_premium'] = (df['open']-df['pre_close'])/df['pre_close']*100
+
+    return sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+
+#print(input_stock_list_date_out_premium(['002783.SZ','603577.SH'],20231228))
+#9.055098742005775
+def input_stock_list_date_out_premium1(list1, date):#这个是输出字典版本的
+    #输入股票代码和日期，算出隔夜的溢价。算法是隔夜价到第二天集合竞价的涨幅
+    import datetime
+    today = datetime.date.today()
+    today_str = today.strftime("%Y%m%d")#获得今日日期
+    tradeday_list = get_transaction_date(20000101, today_str)
+    previous_date = None
+    index = None
+    date_str = str(date)
+    if date_str in tradeday_list:
+        index = tradeday_list.index(date_str)
+        if index > 0:
+            previous_date_str = tradeday_list[index - 1]
+            previous_date = datetime.datetime.strptime(previous_date_str, "%Y%m%d").date()
+    else:
+        index = date_str
+    ts_code_str = ','.join(list1)
+    import tushare as ts
+    pro = ts.pro_api()
+    previous_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
+    df = pro.daily(ts_code=ts_code_str, start_date=previous_date_str, end_date=today_str)
+    df['geye_premium'] = (df['open']-df['pre_close'])/df['pre_close']*100
+    df = df.groupby('ts_code').tail(1)
+    dict892347 = dict(zip(df['ts_code'],df['geye_premium']))
+    return dict892347
+#print(input_stock_list_date_out_premium1(['600491.SH','688599.SH'], 20231227))
+#{'600491.SH': -0.4950495049505065, '688599.SH': -0.11485451761103038}

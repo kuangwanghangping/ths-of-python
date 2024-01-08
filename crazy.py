@@ -370,3 +370,22 @@ def input_stock_list_date_out_premium1(list1, date):#这个是输出字典版本
     return dict892347
 #print(input_stock_list_date_out_premium1(['600491.SH','688599.SH'], 20231227))
 #{'600491.SH': -0.4950495049505065, '688599.SH': -0.11485451761103038}
+def dict_rank (dict7834):
+# 按值对字典进行降序排序
+    sorted_dict = sorted(dict7834.items(), key=lambda x: x[1], reverse=True)
+# 创建包含所有键和排名的字典
+    result_dict = {key: i + 1 for i, (key, _) in enumerate(sorted_dict)}
+    return result_dict
+#dict1 = {'hdjf': 123, 'gshjad': 2376, 'gydfjas': 2135, 'geyu': 6743}
+#{'geyu': 1, 'gshjad': 2, 'gydfjas': 3, 'hdjf': 4}
+def convert_to_yi(number):
+    yi = number / 100000000
+    return yi
+#有时候一些数据很大，不直观，我有时候不知道是几个亿，
+def last_trade_day():#这个是为了得到最近的交易日。这个是为了比如周日的时候得到的数据是星期五，
+    today = datetime.date.today()
+    today_str = today.strftime("%Y%m%d")#获得今日日期
+    tradeday_list = get_transaction_date(20000101, today_str)
+    return tradeday_list[0]
+#print(last_trade_day())
+#20240108

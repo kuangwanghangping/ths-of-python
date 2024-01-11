@@ -296,6 +296,28 @@ def judge_upstop_price(stock_name,stock_code,stock_yesterday_price):
             upstop_price = round(stock_yesterday_price * 1.3,2)
     return upstop_price
 #用来判断今日的涨停价格是多少
+def judge_downstop_price(stock_name,stock_code,stock_yesterday_price):
+    if stock_name.startswith(('st', '*st','ST', '*ST')) :
+        # 这个是判断股票名字是否是st的，并且是不是主板的
+        if stock_code.startswith(('00', '60')):
+            downstop_price = round(stock_yesterday_price * 0.95,2)
+        elif stock_code.startswith(('68', '30')):
+            downstop_price = round(stock_yesterday_price * 0.8, 2)
+        else:
+            downstop_price = round(stock_yesterday_price * 0.7, 2)
+    elif stock_name.startswith('N'):
+        downstop_price = 1#这个意思是无限小的意思
+    elif stock_name.startswith('C'):
+        downstop_price = 1  # 这个意思是无限小的意思
+    else:
+        if stock_code.startswith(('00', '60')):
+            downstop_price = round(stock_yesterday_price * 0.9,2)
+        elif stock_code.startswith(('68', '30')):
+            downstop_price = round(stock_yesterday_price * 0.8,2)
+        else:
+            downstop_price = round(stock_yesterday_price * 0.7,2)
+    return downstop_price
+#用来判断今日的跌停价格是多少
 def get_month_range(year, month):
     start_date = datetime.date(year, month, 1)
 

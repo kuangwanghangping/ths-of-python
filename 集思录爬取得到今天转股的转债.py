@@ -1,3 +1,5 @@
+from tqdm import tqdm
+
 import requests
 import time
 import threading
@@ -36,10 +38,9 @@ def get_scale_downing(bond):
                 all_scale_downing[bond] = scale_downing
     except:
         pass
-    print(bond)
 start_time = time.time()
 threads = []
-for bond in bonds_list:
+for bond in tqdm(bonds_list):
     thread = threading.Thread(target=get_scale_downing, args=(bond,))
     threads.append(thread)
     thread.start()
@@ -54,5 +55,3 @@ for i ,ii  in all_scale_downing.items():
 print(chinese_all_scale_downing)
 print(end_time - start_time)
 input("按下任意键退出")
-
-

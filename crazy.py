@@ -1,6 +1,8 @@
 import re
 import datetime
+from datetime import date
 import time
+import akshare as ak
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
     return set_result
@@ -411,3 +413,33 @@ def last_trade_day():#这个是为了得到最近的交易日。这个是为了�
     return tradeday_list[0]
 #print(last_trade_day())
 #20240108
+def last_trade_day_special(input_date):
+    input_date = datetime.datetime.strptime(input_date, '%Y%m%d')
+    today_str = input_date.strftime("%Y%m%d")#获得今日日期
+    tradeday_list = get_transaction_date(20000101, today_str)
+    return tradeday_list[1]
+#date = last_trade_day_special('20240124')
+#得到的是上一个交易日,如果你是星期六的话他给你的日期就是星期四的
+def upstop_stock(date):#因为akshare2023年的涨停数据是丢失的，所以我用tushare更新了一下
+    try:
+        def add_suffix(code):
+            if code.startswith('6'):
+                return code + '.SH'
+            elif code.startswith('0'):
+                return code + '.SZ'
+            else:
+                return code + '.BJ'
+        stock_zt_pool_previous_em_df = ak.stock_zt_pool_previous_em(date)
+        stock_zt_pool_previous_em_df['代码'] = stock_zt_pool_previous_em_df['代码'].apply(add_suffix)
+    except:
+
+        import tushare as ts
+        pro = ts.pro_api()
+        stock_zt_pool_previous_em_df = pro.limit_list_d(trade_date=date, limit_type='U', fields='ts_code,trade_date,industry,name,close,pct_chg,open_times,up_stat,limit_times')
+        stock_zt_pool_previous_em_df.rename(columns={'ts_code': '代码'}, inplace=True)
+
+    return stock_zt_pool_previous_em_df
+if __name__ == '__main__':
+    print(upstop_stock(20230206))
+    print(upstop_stock(20240205))
+

@@ -367,6 +367,15 @@ def input_stock_list_date_out_premium(list1, date):
 
 #print(input_stock_list_date_out_premium(['002783.SZ','603577.SH'],20231228))
 #9.055098742005775
+def input_bond_list_date_out_premium(list1, date):
+    date1 = last_trade_day_special1(date)
+    import tushare as ts
+    pro = ts.pro_api()
+    df = pro.cb_daily(trade_date=date1)
+    df = df[df['ts_code'].isin(list1)]
+    df['geye_premium'] = (df['open'] - df['pre_close']) / df['pre_close'] * 100
+    return sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+#print(input_bond_list_date_out_premium(['113595.SH','128143.SZ'],'20240207'))
 def input_stock_list_date_out_premium1(list1, date):#这个是输出字典版本的
     #输入股票代码和日期，算出隔夜的溢价。算法是隔夜价到第二天集合竞价的涨幅
     import datetime

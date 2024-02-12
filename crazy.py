@@ -374,7 +374,9 @@ def input_bond_list_date_out_premium(list1, date):
     df = pro.cb_daily(trade_date=date1)
     df = df[df['ts_code'].isin(list1)]
     df['geye_premium'] = (df['open'] - df['pre_close']) / df['pre_close'] * 100
-    return sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+    df.loc[df['open'] == 0, 'geye_premium'] =
+
+    return sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist()),df
 #print(input_bond_list_date_out_premium(['113595.SH','128143.SZ'],'20240207'))
 def input_stock_list_date_out_premium1(list1, date):#这个是输出字典版本的
     #输入股票代码和日期，算出隔夜的溢价。算法是隔夜价到第二天集合竞价的涨幅
@@ -460,6 +462,33 @@ def upstop_stock(date):#因为akshare2023年的涨停数据是丢失的，所以
         stock_zt_pool_previous_em_df.rename(columns={'ts_code': '代码'}, inplace=True)
 
     return stock_zt_pool_previous_em_df
+
+def crawler_inactivity_web(url):
+    #url = "https://www.jisilu.cn/data/cbnew/detail_pic/?display=premium_rt&bond_id=123116"  # 替换为您要抓取的网页地址
+    response = requests.get(url)
+
+    # 使用 BeautifulSoup 解析网页内容
+    soup = BeautifulSoup(response.text, "html.parser")
+    dict_data = json.loads(str(soup))  # 这步是将soup格式转换为字典格式
+    # 提取需要的数据
+    # 这里假设您要抓取网页中的标题和正文内容
+    return dict_data
+#print(crawler_inactivity_web('https://www.jisilu.cn/data/cbnew/detail_pic/?display=premium_rt&bond_id=123116'))
+
+def crawler_dynaics_web(url,params):
+    #url = "https://www.jisilu.cn/data/cbnew/detail_hist/110083?___jsl=LST___t=1704707501648"  # 替换为您要请求的网址
+    #params = {"rp": 50, "page": 1}  # 替换为您的分页参数#这个是f12中载荷的表单数据字典格式填入
+    # 发送 GET 请求并获取返回结果
+    response = requests.post(url, params=params)
+    dict1 = response.json()
+    return dict1
+#print(crawler_dynaics_web("https://www.jisilu.cn/data/cbnew/detail_hist/110083?___jsl=LST___t=1704707501648",{"rp": 50, "page": 1}))
+
+
+
+
+
+
 if __name__ == '__main__':
     print(upstop_stock(20230206))
     print(upstop_stock(20240205))

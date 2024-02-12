@@ -339,7 +339,7 @@ def list_Element_Split(lsit):
     return lsit1
 #['汽车电子;小鹏汽车概念;融资融券;专精特新;消费电子概念;PCB概念', '小额贷款;有色铝;一带一路;参股民营银行;光伏概念']
 #['汽车电子','小鹏汽车概念','融资融券','专精特新','消费电子概念','PCB概念', '小额贷款','有色铝','一带一路','参股民营银行','光伏概念']
-
+#print(input_stock_list_date_out_premium(['000001.SZ','600000.SH'], 20240207))
 def input_stock_list_date_out_premium(list1, date):
     #输入股票代码和日期，算出隔夜的溢价。算法是隔夜价到第二天集合竞价的涨幅
     import datetime
@@ -362,8 +362,8 @@ def input_stock_list_date_out_premium(list1, date):
     previous_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
     df = pro.daily(ts_code=ts_code_str, start_date=previous_date_str, end_date=previous_date_str)
     df['geye_premium'] = (df['open']-df['pre_close'])/df['pre_close']*100
-
-    return sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+    # a = sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+    return a
 
 #print(input_stock_list_date_out_premium(['002783.SZ','603577.SH'],20231228))
 #9.055098742005775
@@ -419,6 +419,18 @@ def last_trade_day_special(input_date):
     tradeday_list = get_transaction_date(20000101, today_str)
     return tradeday_list[1]
 #date = last_trade_day_special('20240124')
+def last_trade_day_special1(input_date):
+    input_date1 = last_trade_day_special(input_date)
+    from datetime import datetime
+    current_date = datetime.now().strftime('%Y%m%d')
+    input_date1 = datetime.strptime(input_date1, '%Y%m%d')
+    today_str = input_date1.strftime("%Y%m%d")#获得今日日期
+    tradeday_list = get_transaction_date(20000101, current_date)
+    index = tradeday_list.index(today_str)
+    previous_string = tradeday_list[index - 2]
+    return previous_string
+#print(last_trade_day_special1('20240201'))
+
 #得到的是上一个交易日,如果你是星期六的话他给你的日期就是星期四的
 def upstop_stock(date):#因为akshare2023年的涨停数据是丢失的，所以我用tushare更新了一下
     try:

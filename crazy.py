@@ -2,7 +2,16 @@ import re
 import datetime
 from datetime import date
 import time
+import requests
 import akshare as ak
+import json
+from bs4 import BeautifulSoup
+import tushare as  ts
+pro = ts.pro_api()
+import baostock as bs
+import pandas as pd
+
+lg = bs.login()
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
     return set_result
@@ -367,17 +376,7 @@ def input_stock_list_date_out_premium(list1, date):
 
 #print(input_stock_list_date_out_premium(['002783.SZ','603577.SH'],20231228))
 #9.055098742005775
-def input_bond_list_date_out_premium(list1, date):
-    date1 = last_trade_day_special1(date)
-    import tushare as ts
-    pro = ts.pro_api()
-    df = pro.cb_daily(trade_date=date1)
-    df = df[df['ts_code'].isin(list1)]
-    df['geye_premium'] = (df['open'] - df['pre_close']) / df['pre_close'] * 100
-    df.loc[df['open'] == 0, 'geye_premium'] =
 
-    return sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist()),df
-#print(input_bond_list_date_out_premium(['113595.SH','128143.SZ'],'20240207'))
 def input_stock_list_date_out_premium1(list1, date):#这个是输出字典版本的
     #输入股票代码和日期，算出隔夜的溢价。算法是隔夜价到第二天集合竞价的涨幅
     import datetime
@@ -430,6 +429,7 @@ def last_trade_day_special(input_date):
     tradeday_list = get_transaction_date(20000101, today_str)
     return tradeday_list[1]
 #date = last_trade_day_special('20240124')
+#得到的是上一个交易日,如果你是星期六的话他给你的日期就是星期四的
 def last_trade_day_special1(input_date):
     input_date1 = last_trade_day_special(input_date)
     from datetime import datetime
@@ -442,7 +442,7 @@ def last_trade_day_special1(input_date):
     return previous_string
 #print(last_trade_day_special1('20240201'))
 
-#得到的是上一个交易日,如果你是星期六的话他给你的日期就是星期四的
+
 def upstop_stock(date):#因为akshare2023年的涨停数据是丢失的，所以我用tushare更新了一下
     try:
         def add_suffix(code):
@@ -486,9 +486,114 @@ def crawler_dynaics_web(url,params):
 
 
 
+def name_suffix_transition(stock):#这个就是将有没有后缀的改变一下，有后缀的改成没有后缀的，没有后缀的改成有后缀的
+    if (stock.startswith('00') or stock.startswith('30') or stock.startswith('12') and \
+    stock.endswith('.SZ')) or (stock.startswith('60') or stock.startswith('68') or stock.startswith('11') and \
+    stock.endswith('.SH')):
+        stock = stock[:6]
+    else:
+        if stock.startswith('00') or stock.startswith('30') or stock.startswith('12') and \
+            not stock.endswith('.SZ') :
+            stock += '.SZ'
+        elif stock.startswith('60') or stock.startswith('68') or stock.startswith('11') and \
+            not stock.endswith('.SH'):
+            stock += '.SH'
+        else:
+            stock += '.BJ'
+    return stock
+# print(name_suffix_transition('113920.SH'))
+# print(name_suffix_transition('113920'))
+
+def bond_redemp_to_stock_premium(bond):#可转债强行赎回的后，变成股票隔夜竞价就卖的溢价率
+    data = crawler_inactivity_web(f'https://www.jisilu.cn/data/cbnew/detail_pic/?display=premium_rt&bond_id={bond}')
+    that_day_premium = -data['picdata'][3][1]  # 那一天的利润可转债负溢价的利润
+    that_day = data['picdata'][3][0]  # 2023-05-12
+    new_date_str = that_day.replace("-", "")  # 那一天的日期20230512
+    last_new_date = last_trade_day_special1(new_date_str)
+    df = pro.cb_basic(fields="ts_code,bond_short_name,stk_code,stk_short_name,list_date,delist_date,remain_size")
+    dict1 = dict(zip(df['ts_code'], df['stk_code']))  # 这个是所有的可转债，历史上的也包括
+    bond_to_stock = name_suffix_transition(bond)
+    df = pro.daily(ts_code=dict1[bond_to_stock], start_date=last_new_date, end_date=last_new_date)
+    df['geye_premium'] = (df['open'] - df['pre_close']) / df['pre_close'] * 100
+    stock_preium = df['geye_premium'].tolist()
+    result = stock_preium[0] + that_day_premium
+    return result
+def input_bond_list_date_out_premium(list1, date):
+    date1 = last_trade_day_special1(date)
+    import tushare as ts
+    pro = ts.pro_api()
+    df = pro.cb_daily(trade_date=date1)
+    df = df[df['ts_code'].isin(list1)]
+    df['geye_premium'] = (df['open'] - df['pre_close']) / df['pre_close'] * 100
+    try:
+        df.loc[df['open'] == 0, 'geye_premium'] = bond_redemp_to_stock_premmium(
+            (name_suffix_transition(','.join(df.loc[df['open'] == 0, 'ts_code'].astype(str)))))
+    except:
+        pass
+    # 将'open'列的值为0对应的'geye_premium'列的值改为1
+    result = sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+    return result
+#print(input_bond_list_date_out_premium(['113595.SH','128143.SZ'],'20240207'))
+def format_stock_code(code,output_type):
+    if output_type == 'sz':
+        if code.endswith('.SZ'):
+            return 'sz' + code[:-3]
+        else:
+            return 'sh' + code[:-3]  # 这个为了akshare将123138.SZ变成sz123138
+    elif output_type == "sz.":
+        if code.endswith('.SZ'):
+            return 'sz.' + code[:-3]
+        else:
+            return 'sh.' + code[:-3]  # 这个为了akshare将123138.SZ变成sz.123138
 
 
+def input_bond_date_output_kill_in_end(stock,date):
+    #这个函数是为了得到可转债的最后半小时是否出现了下杀的情况
+    #但是不知道为啥，20231009之前的就无法访问
+    import baostock as bs
+    import pandas as pd
 
+    stock = format_stock_code(stock, 'sz.')
+    rs = bs.query_history_k_data_plus(stock,
+                                      "date,time,code,high,low,open,close,volume,amount,adjustflag",
+                                      start_date=date, end_date=date,
+                                      frequency="30", adjustflag="3")
+    data_list = []
+    while (rs.error_code == '0') & rs.next():
+        # 获取一条记录，将记录合并在一起
+        data_list.append(rs.get_row_data())
+    result = pd.DataFrame(data_list, columns=rs.fields)
+
+    if -(float(result['close'].tolist()[-1]) - float(result['close'].tolist()[-2])) / float(
+            result['close'].tolist()[-2]) * 100 > 3.8:
+        result1 = 'yes'
+    else:
+        result1 = 'no'
+    return result1
+#print(input_bond_date_output_kill_in_end('128143.SZ','2024-02-07'))
+
+
+#这两个用与两种时间之间的转换
+def date_format_transform(date):
+    # 检查输入日期的格式
+    if '-' in date:  # 如果输入日期格式为 YYYY-MM-DD
+        return date.replace('-', '')
+    elif len(date) == 8:  # 如果输入日期格式为 YYYYMMDD
+        return f"{date[:4]}-{date[4:6]}-{date[6:]}"
+    else:
+        return "Invalid date format"
+# print(date_format_transform("20240207"))
+# print(date_format_transform('2024-02-07'))
+# 2024-02-07
+# 20240207
+def get_redeem_remain_days_equal_1():
+    jsl_neirong = crawler_inactivity_web('https://www.jisilu.cn/webapi/cb/redeem/')['data']
+    for i in jsl_neirong:
+        if i['redeem_remain_days'] == 1:
+            print(i)
+        return i['bond_id']
+    #print(get_redeem_remain_days_equal_1())这个是得到最后一天要宣布强赎与否的票，就是不隔夜
+    #113063
 if __name__ == '__main__':
     print(upstop_stock(20230206))
     print(upstop_stock(20240205))

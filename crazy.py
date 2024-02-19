@@ -10,7 +10,7 @@ import tushare as  ts
 pro = ts.pro_api()
 import baostock as bs
 import pandas as pd
-
+import pywencai
 lg = bs.login()
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
@@ -548,11 +548,12 @@ def format_stock_code(code,output_type):
 
 
 def input_bond_date_output_kill_in_end(stock,date):
+
+
     #这个函数是为了得到可转债的最后半小时是否出现了下杀的情况
     #但是不知道为啥，20231009之前的就无法访问
     import baostock as bs
     import pandas as pd
-
     stock = format_stock_code(stock, 'sz.')
     rs = bs.query_history_k_data_plus(stock,
                                       "date,time,code,high,low,open,close,volume,amount,adjustflag",
@@ -594,7 +595,57 @@ def get_redeem_remain_days_equal_1():
         return i['bond_id']
     #print(get_redeem_remain_days_equal_1())这个是得到最后一天要宣布强赎与否的票，就是不隔夜
     #113063
+def get_all_bonds(all):
+    if all == 'historical' :
+        df = pro.cb_basic(fields="ts_code,bond_short_name,stk_code,stk_short_name,list_date,delist_date,remain_size")
+        dict1 = dict(zip(df['ts_code'], df['stk_code']))  # 这个是所有的可转债，历史上的也包括
+
+    else:
+        df = pro.cb_basic(fields="ts_code,bond_short_name,stk_code,stk_short_name,list_date,delist_date,remain_size")
+        df = df[df['delist_date'].isna()]  # 前面两行是为了得到目前还在交易的转债，
+        dict1 = dict(zip(df['ts_code'], df['stk_code']))
+    return dict1
+#你输入正股的形态，和日期就行了.就会得到对应的可转债
+def base_on_pywc (query,date):
+    get_all_bonds('historical')
+    res = pywencai.get(query =f'{date}日{query}',loop=True)
+    res = res['xuangu_tableV1']
+    def add_suffix(code):
+        if code.startswith('6'):
+            return code + '.SH'
+        elif code.startswith('0'):
+            return code + '.SZ'
+        else:
+            return code + '.BJ'
+    res['code'] = res['code'].apply(add_suffix)
+    upstops_stock = res['code'].tolist()
+    #print(upstops_stock)
+    that_day_stock_upstops_bond = []
+    for i,ii in get_all_bonds('historical').items():
+        for n in upstops_stock:
+            if ii == n :
+                that_day_stock_upstops_bond.append(i)
+    return that_day_stock_upstops_bond
+# print(base_on_pywc('曾经涨停的股票','20240219'))
+# ['113593.SH', '127099.SZ']
+
+
+
 if __name__ == '__main__':
     print(upstop_stock(20230206))
     print(upstop_stock(20240205))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

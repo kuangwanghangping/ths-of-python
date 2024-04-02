@@ -2,15 +2,19 @@ import re
 import datetime
 from datetime import date
 import time
+import json
+import os
 import requests
 import akshare as ak
 import json
 from bs4 import BeautifulSoup
 import tushare as  ts
-pro = ts.pro_api()
+pro = ts.pro_api('522bd20d16a78ff247dd6c556103fa5cfdaf2076c918e08f99897374')
 import baostock as bs
 import pandas as pd
 import pywencai
+from tqdm import tqdm
+
 lg = bs.login()
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
@@ -263,7 +267,6 @@ def timestamp_to_Visual_time(timestamp):
 
 def get_transaction_date(start_date,end_date):
     import tushare as ts
-    pro = ts.pro_api('5fed8bed6aa331d3b8d5577ce5e7343f8ee859597908ab9366542dd3')
     df456 = pro.ths_daily(ts_code='883910.TI', start_date=start_date, end_date=end_date, fields='ts_code,trade_date,open,close,high,low,pct_change')
 # 将字符串日期转换为datetime对象
     data_list  = df456['trade_date'].tolist()      #获得这段时间可以交易的时间
@@ -366,8 +369,6 @@ def input_stock_list_date_out_premium(list1, date):
     else:
         index = date_str
     ts_code_str = ','.join(list1)
-    import tushare as ts
-    pro = ts.pro_api()
     previous_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
     df = pro.daily(ts_code=ts_code_str, start_date=previous_date_str, end_date=previous_date_str)
     df['geye_premium'] = (df['open']-df['pre_close'])/df['pre_close']*100
@@ -394,8 +395,6 @@ def input_stock_list_date_out_premium1(list1, date):#这个是输出字典版本
     else:
         index = date_str
     ts_code_str = ','.join(list1)
-    import tushare as ts
-    pro = ts.pro_api()
     previous_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
     df = pro.daily(ts_code=ts_code_str, start_date=previous_date_str, end_date=today_str)
     df['geye_premium'] = (df['open']-df['pre_close'])/df['pre_close']*100
@@ -455,9 +454,6 @@ def upstop_stock(date):#因为akshare2023年的涨停数据是丢失的，所以
         stock_zt_pool_previous_em_df = ak.stock_zt_pool_previous_em(date)
         stock_zt_pool_previous_em_df['代码'] = stock_zt_pool_previous_em_df['代码'].apply(add_suffix)
     except:
-
-        import tushare as ts
-        pro = ts.pro_api()
         stock_zt_pool_previous_em_df = pro.limit_list_d(trade_date=date, limit_type='U', fields='ts_code,trade_date,industry,name,close,pct_chg,open_times,up_stat,limit_times')
         stock_zt_pool_previous_em_df.rename(columns={'ts_code': '代码'}, inplace=True)
 
@@ -520,8 +516,6 @@ def bond_redemp_to_stock_premium(bond):#可转债强行赎回的后，变成股�
     return result
 def input_bond_list_date_out_premium(list1, date):
     date1 = last_trade_day_special1(date)
-    import tushare as ts
-    pro = ts.pro_api()
     df = pro.cb_daily(trade_date=date1)
     df = df[df['ts_code'].isin(list1)]
     df['geye_premium'] = (df['open'] - df['pre_close']) / df['pre_close'] * 100
@@ -599,7 +593,6 @@ def get_all_bonds(all):
     if all == 'historical' :
         df = pro.cb_basic(fields="ts_code,bond_short_name,stk_code,stk_short_name,list_date,delist_date,remain_size")
         dict1 = dict(zip(df['ts_code'], df['stk_code']))  # 这个是所有的可转债，历史上的也包括
-
     else:
         df = pro.cb_basic(fields="ts_code,bond_short_name,stk_code,stk_short_name,list_date,delist_date,remain_size")
         df = df[df['delist_date'].isna()]  # 前面两行是为了得到目前还在交易的转债，
@@ -617,24 +610,49 @@ def base_on_pywc (query,date):
             return code + '.SZ'
         else:
             return code + '.BJ'
-    res['code'] = res['code'].apply(add_suffix)
-    upstops_stock = res['code'].tolist()
+    if res.empty:
+        upstops_stock = ['000001.SZ']
+    else:
+        res['code'] = res['code'].apply(add_suffix)
+        upstops_stock = res['code'].tolist()
     #print(upstops_stock)
     that_day_stock_upstops_bond = []
     for i,ii in get_all_bonds('historical').items():
         for n in upstops_stock:
             if ii == n :
                 that_day_stock_upstops_bond.append(i)
+    time.sleep(1)
     return that_day_stock_upstops_bond
 # print(base_on_pywc('曾经涨停的股票','20240219'))
 # ['113593.SH', '127099.SZ']
+#如果你的字典是一个以日期为键的字典，该函数能得到字典里面键的下一天节约了重复爬取的时间
+def get_dict_last_maxday(dict):
+  from datetime import datetime, timedelta
+  dict = {'20240220': 123, '20240221': 234, '20240222': 234, '20240229': 234}
+  max_date = max(dict.keys())
+  date_obj = datetime.strptime(max_date, '%Y%m%d')
+  # 计算下一个日期
+  next_date_obj = date_obj + timedelta(days=1)
+  # 将下一个日期转换回字符串格式
+  next_date = next_date_obj.strftime('%Y%m%d')
+  return next_date
+def dict_write_jsonfile(dictdata,path,name):
+    file_path = os.path.join(path, f"{name}.json")
+    with open(file_path, "w") as file:
+        json.dump(dictdata, file)
+    print(f"文件已经保存到{file_path}")
+#（将什么字典数据，保存到哪，什么文件名字叫啥）
 
-
+def read_jsonfile(file_path):
+    with open(file_path, "r") as file:
+        data = json.load(file)
+    return data
+#输入地址的时候别让及r""例如r'C:\Users\Administrator\Desktop\jingjiazhangfu_data.json'
 
 if __name__ == '__main__':
-    print(upstop_stock(20230206))
-    print(upstop_stock(20240205))
-
+   # print(upstop_stock(20230206))
+   # print(upstop_stock(20240205))
+    print(base_on_pywc ('一字涨停的股票',20230719))
 
 
 

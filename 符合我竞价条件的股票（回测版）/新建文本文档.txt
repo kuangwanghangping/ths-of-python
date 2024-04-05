@@ -1,0 +1,4 @@
+wencai_data.py 可以得到竞价的成交额和涨幅，但是要在那个wencai_data打开。
+wencai_data.py得到的可以在桌面得到两个json文件
+
+往日符合条件的都给我拿出来.py，可以读取桌面的json文件，两个组合就能得到我想要的股票了

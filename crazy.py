@@ -9,12 +9,13 @@ import akshare as ak
 import json
 from bs4 import BeautifulSoup
 import tushare as  ts
-pro = ts.pro_api('522bd20d16a78ff247dd6c556103fa5cfdaf2076c918e08f99897374')
+pro = ts.pro_api("ad047441cc72120d3197505b58f84964148b449405d5e67b410a8bac")
 import baostock as bs
 import pandas as pd
 import pywencai
 from tqdm import tqdm
-
+import threading
+from threading import Lock
 lg = bs.login()
 def set_intersection (a,b):#两个set求交集
     set_result = a.intersection(b)
@@ -35,6 +36,8 @@ def list_union(a,b):
 def list_diff (a,b):
     li_diff = [x for x in a if x not in b] + [x for x in b if x not in a]
     return li_diff
+def filter_list(list1, list2):
+    return [x for x in list1 if x not in list2]         #只要list2中有的，list1 就删除
 def dict_intersection(dict1, dict2):
     intersection = {}
     for key in dict1.keys():
@@ -372,7 +375,7 @@ def input_stock_list_date_out_premium(list1, date):
     previous_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
     df = pro.daily(ts_code=ts_code_str, start_date=previous_date_str, end_date=previous_date_str)
     df['geye_premium'] = (df['open']-df['pre_close'])/df['pre_close']*100
-    # a = sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
+    a = sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
     return a
 
 #print(input_stock_list_date_out_premium(['002783.SZ','603577.SH'],20231228))
@@ -423,6 +426,8 @@ def last_trade_day():#这个是为了得到最近的交易日。这个是为了�
 #print(last_trade_day())
 #20240108
 def last_trade_day_special(input_date):
+    if type(input_date) == int:
+        input_date = str(input_date)
     input_date = datetime.datetime.strptime(input_date, '%Y%m%d')
     today_str = input_date.strftime("%Y%m%d")#获得今日日期
     tradeday_list = get_transaction_date(20000101, today_str)
@@ -525,6 +530,7 @@ def input_bond_list_date_out_premium(list1, date):
     except:
         pass
     # 将'open'列的值为0对应的'geye_premium'列的值改为1
+
     result = sum(df['geye_premium'].tolist())/len(df['geye_premium'].tolist())
     return result
 #print(input_bond_list_date_out_premium(['113595.SH','128143.SZ'],'20240207'))
@@ -581,6 +587,8 @@ def date_format_transform(date):
 # print(date_format_transform('2024-02-07'))
 # 2024-02-07
 # 20240207
+
+
 def get_redeem_remain_days_equal_1():
     jsl_neirong = crawler_inactivity_web('https://www.jisilu.cn/webapi/cb/redeem/')['data']
     for i in jsl_neirong:
@@ -649,15 +657,229 @@ def read_jsonfile(file_path):
     return data
 #输入地址的时候别让及r""例如r'C:\Users\Administrator\Desktop\jingjiazhangfu_data.json'
 
+
+
+
+
+def dataframe_sort_by_column(df, sort_column_names, ascending=False):
+    """
+    根据指定列对DataFrame进行排序。
+
+    Parameters:
+    df (DataFrame): 输入的DataFrame。
+    sort_column_names (str or list): 需要排序的列名，单个列名或列名的列表。
+    ascending (bool, optional): 排序顺序，True表示升序，False表示降序。默认为True。
+
+    Returns:
+    DataFrame: 排序后的DataFrame。
+    """
+    df_sorted = df.sort_values(by=sort_column_names, ascending=ascending)
+    return df_sorted
+#dataframe删掉重复行
+def dataframe_del_duplication_row(df, need_del_column_names):
+    """
+    删除DataFrame中重复的行。
+
+    Parameters:
+    df (DataFrame): 输入的DataFrame。
+    need_del_column_names (list): 需要对标的列名，用于判断重复行。
+
+    Returns:
+    DataFrame: 删除重复行后的DataFrame。
+    """
+    return df.drop_duplicates(subset=need_del_column_names, keep='first', inplace=False)
+def create_excel_from_list(type_output, data_list, output_path):
+        # 列表生成excel的标签
+    if type_output == "column":
+       df = pd.DataFrame(data_list, columns=['Column1'])
+    else:
+        df = pd.DataFrame([data_list], columns=range(1, len(data_list) + 1))
+    df.to_excel(output_path, index=False, header=False)
+        # if __name__ == '__main__':
+        #     output_file_path = r'C:\Users\Administrator\Desktop\output.xlsx'
+        #     your_list = ['Apple', 'Orange', 'Banana', 'Grape', 'Pineapple']
+        #     create_excel_from_list("column",your_list,output_file_path)
+def is_within_time_range(date_int, start_date_str, end_date_str):
+    # 用来判断一个时间是不是在另外两个时间之间
+    # 主要用
+    # 将日期字符串转换为日期时间对象
+    start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+    # 将整数日期转换为日期时间对象
+    date = datetime.strptime(str(date_int), "%Y%m%d")
+
+    # 检查给定日期是否在指定时间范围内
+    if start_date <= date <= end_date:
+        return True
+    else:
+        return False
+# result = is_within_time_range(20030321, "2002-06-28", "2004-04-30")
+# print(result)
+def input_stock_list_date_out_premium_auction_to_auction (list1,date):
+    import datetime
+    today = datetime.date.today()
+    today_str = today.strftime("%Y%m%d")#获得今日日期
+    tradeday_list = get_transaction_date(20000101, today_str)
+    previous_date = None
+    index = None
+    date_str = str(date)
+    if date_str in tradeday_list:
+        index = tradeday_list.index(date_str)
+        if index > 0:
+            previous_date_str = tradeday_list[index]
+            last_date_str = tradeday_list[index - 1]
+            previous_date = datetime.datetime.strptime(previous_date_str, "%Y%m%d").date()
+            last_date = datetime.datetime.strptime(last_date_str, "%Y%m%d").date()
+    else:
+        index = date_str
+    ts_code_str = ','.join(list1)
+    last_date_str = previous_date.strftime("%Y%m%d") if previous_date else None
+    previous_date_str= last_date.strftime("%Y%m%d") if last_date else None
+    df = pro.daily(ts_code=ts_code_str, start_date=last_date_str, end_date=previous_date_str)
+    return (df['open'].tolist()[0] - df['open'].tolist()[1])/df['open'].tolist()[1] * 100
+
+
+def parse_data_to_dict(data: str) -> dict:
+    # 创建一个空字典来存储解析后的数据
+    parsed_dict = {}
+#这个多用在开盘啦里面body
+    # 按照每行进行拆分
+    lines = data.split("\n")
+    # 对每一行进行处理
+    for line in lines:
+        # 去除首尾空白
+        line = line.strip()
+        # 跳过空行
+        if not line:
+            continue
+
+        # 将行分割为键和值
+        key, value = line.split("\t")
+
+        # 将键和值存储在字典中
+        parsed_dict[key] = value
+
+    return parsed_dict
+
+
+def sort_list2_by_list1_order(list1, list2):
+    """
+    根据list1中元素的顺序对list2进行排序
+
+    参数:
+    list1 (list): 要用于排序的参考列表
+    list2 (list): 要排序的列表
+
+    返回:
+    list: 排序后的list2，其中元素按照在list1中首次出现的顺序排列
+    """
+    # 创建一个字典来存储list1中元素的索引
+    index_dict = {element: idx for idx, element in enumerate(list1)}
+
+    # 创建一个列表来存储排序后的元素
+    sorted_list2 = []
+
+    # 遍历list2，根据在list1中的索引进行排序
+    for element in list2:
+        # 如果元素在index_dict中，则添加到sorted_list2中
+        if element in index_dict:
+            sorted_list2.append((index_dict[element], element))
+            # 如果元素不在list1中，则将其索引设为无穷大（或其他大于list1长度的数）
+        else:
+            sorted_list2.append((float('inf'), element))
+
+            # 根据索引进行排序，然后仅返回元素部分
+    return [elem for _, elem in sorted(sorted_list2)]
+def get_before_day(input_date):
+    index = date_list.index(input_date)#date_list = get_transaction_date(20240302, 20240325)我这里面是全局变量
+    return date_list[index+1]
+
+def get_today_price_minus_yes_price(stockID,date):
+    yes_date = get_before_day(date)
+    url = 'https://apphis.longhuvip.com/w1/api/index.php'
+    headers = {'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 5.1.1; SM-N976N Build/QP1A.190711.020)'}
+    yes_data = f"""a	GetStockTrend
+               apiv	w36
+               c	StockL2History
+               StockID	{stockID}
+               PhoneOSNew	1
+               UserID	0
+               DeviceID	ffffffff-d151-c2cd-0000-00002cd5753b
+               VerSion	5.14.0.0
+               Token	0
+               Day	{yes_date}"""
+    yes_datas = parse_data_to_dict(yes_data)
+    response = requests.post(url, data=yes_datas, headers=headers)
+    response.encoding = response.apparent_encoding
+    yes_data = json.loads(response.text)
+    yes_data = yes_data['begin_px']
+    data = f"""a	GetStockTrend
+               apiv	w36
+               c	StockL2History
+               StockID	{stockID}
+               PhoneOSNew	1
+               UserID	0
+               DeviceID	ffffffff-d151-c2cd-0000-00002cd5753b
+               VerSion	5.14.0.0
+               Token	0
+               Day	{date}"""
+    datas = parse_data_to_dict(data)
+    response = requests.post(url, data=datas, headers=headers)
+    response.encoding = response.apparent_encoding
+    data = json.loads(response.text)
+    data = data['begin_px']
+    return ((data-yes_data)/yes_data)*100
+def get_all_bankua():
+    url = 'https://apphwhq.longhuvip.com/w1/api/index.php'
+    headers = {'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 5.1.1; SM-N976N Build/QP1A.190711.020)'}
+    bankua_list = []
+    lock = Lock()  # 创建一个锁来确保线程安全
+    threads = []
+    # 定义fetch_bankua函数，但这次是在get_all_bankua内部
+    def fetch_bankua(i, bankua_list, lock):
+        data = f"""  
+        Order	1  
+        a	RealRankingInfo  
+        st	30  
+        c	ZhiShuRanking  
+        PhoneOSNew	1  
+        RStart	0925  
+        DeviceID	ffffffff-d151-c2cd-0000-00002cd5753b  
+        VerSion	5.14.0.4  
+        Index	{i * 30}  
+        REnd	1500  
+        apiv	w36  
+        Type	5  
+        ZSType	5  
+        """
+        datas = parse_data_to_dict(data)  # 确保这个函数能正确解析数据
+        response = requests.post(url, data=datas, headers=headers)
+        response.encoding = response.apparent_encoding
+        if response.status_code == 200:
+            data_list = json.loads(response.text)['list']
+            with lock:
+                for item in data_list:
+                    bankua_list.append(item[0])
+                    # 创建并启动线程
+    for i in range(14):
+        t = threading.Thread(target=fetch_bankua, args=(i, bankua_list, lock))
+        t.start()
+        threads.append(t)
+        # 等待所有线程完成
+    for t in threads:
+        t.join()
+        # 打印并返回结果
+    return bankua_list
+
+
+
+
 if __name__ == '__main__':
-   # print(upstop_stock(20230206))
+   print(upstop_stock(20230206))
    # print(upstop_stock(20240205))
-    print(base_on_pywc ('一字涨停的股票',20230719))
-
-
-
-
-
+   #  dataframe_completely_display()
+   #  input_stock_list_date_out_premium1(['002261.SZ'], 20230224)
 
 
 
